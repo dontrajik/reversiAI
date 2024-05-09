@@ -1,95 +1,112 @@
 import re
-import random
+from random import choice
 
 class Board:
     def __init__(self):
         self.width, self.height = 8, 8
 
-        self.black, self.white = 0,0
+        self.black, self.white = 2,2
 
-        self.board = [ [0]*self.width for i in range(self.height)]
+        self.board = [[0]*self.height for row in range(self.width)]
 
-        self.board[3][3] = self.board[4][4] = "+"
-        self.board[3][4] = self.board[4][3] = "-"
+        self.board[3][3] = self.board[4][4] = "-"
+        self.board[3][4] = self.board[4][3] = "+"
 
         self.onTurn = True #true if White (+), false if Black (-)
-        self.validDirections = []
+        self.validMoves = []
+
+        self.moves = []
 
     def __repr__(self) -> str:
         ret = ""
-        for i in range(self.width):
-            for j in range(self.height):
-                ret  += str(self.board[i][j])+"  "
+        self.validMoves = []
+        for row in range(self.height - 1,-1,-1):
+            ret += str(row) + " | "
+            for col in range(self.width):
+                ret  += str(self.board[col][row])+"  "
             ret += "\n"
+        ret += "--------------------------\n"
+        ret += "    0  1  2  3  4  5  6  7\n"
         return ret
     
-    def on_board(self, move:tuple):
-        row, col = move
-        return row >= 0 or row < self.width or col >= 0 or  col < self.height
+    def endTurn(self) -> None:
+        self.onTurn = not self.onTurn
+        
+    def on_board(self, move:tuple) -> bool:
+        col, row = move
+        return (row >= 0) and (row < self.height) and (col >= 0) and (col < self.width)
     
-    def isValidMove(self, move : tuple) -> bool:
-        self.validDirections = []
+    def scan(self, position) -> list:
+        validDirections = []
         if(self.onTurn):
             player = "+"
             opponent = "-"
         else:
             player = "-"
             opponent = "+"
-        
-        valid = True
-        directons = [(0,-1),(1,-1),(0,1),(1,1),(1,0),(-1,1),(-1,0),(-1,-1)]
+
+        directons = [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)]
         for direction in  directons:
-            dr, dc = direction
-            r, c = move
-            if(r < 0):
-                valid = False
-            elif(r >= self.height):
-                valid = False
-            elif(c < 0):
-                valid = False
-            elif(c >= self.width):
-                valid = False
-            elif (self.board[c][r] != 0):
-                valid = False
+            dc, dr = direction
+            c, r = position
             
             vals = ""
-            while valid and 0 <= r < self.height and 0 <= c < self.width:
+            while 0 <= r < self.height and 0 <= c < self.width:
                 vals +=  str(self.board[c][r])
                 r += dr
                 c += dc
             if(re.search("^0{1}"+"\{}+\{}".format(opponent, player),vals) != None):
-                self.validDirections.append(direction)
-                valid = True
-        if(len(self.validDirections) == 0):
-            valid = False
-        return valid
+                validDirections.append(direction)
+        return validDirections
+
+    def isValidMove(self, move : tuple) -> bool:
+        if(not(self.on_board(move))):
+            return False
+        c, r = move
+        if(self.board[c][r] != 0):
+            return False
+        
+        if(len(self.scan(move)) == 0):
+            return False
+        return True
     
-    def makeMove(self, move : tuple):
+    def makeMove(self, move : list) -> None:
+        move = [int(i) for i in move]
         if(self.onTurn):
             opponent = "-"
         else:
             opponent = "+"
-        row, col = move
+        col, row = move
         if self.on_board(move) and self.isValidMove(move):
-            for direction in self.validDirections:
+            validDirections = self.scan(move)
+            for direction in validDirections:
                 self.board[col][row] = "-" if self.onTurn else "+"
-                dr, dc = direction
-                r, c = move
+                dc, dr = direction
+                c, r = move
                 while 0 <= r < self.height and 0 <= c < self.width and self.board[c][r] == opponent:
                     self.board[c][r] = "+" if self.onTurn else "-"
                     r += dr
                     c += dc
-            self.onTurn = not self.onTurn
+            self.endTurn()
+            self.moves.append(move)
         else:
             print("Invalid Move!")
 
-    def unmakeMove(self, move : tuple):
-        row, col = move
-        dirs = ((-1,0),(-1,1),(0,1),(1,1),(1,0),(1,-1),(0,-1),(-1,-1))
-        for direction in dirs:
-            dy, dx = direction
+    def unmakeMove(self) -> None:
+        self.board = [[0]*self.height for row in range(self.width)]
 
-    def checkWin(self):
+        self.board[3][3] = self.board[4][4] = "-"
+        self.board[3][4] = self.board[4][3] = "+"
+
+        self.onTurn = True
+        
+        moves = self.moves[:-1]
+        self.moves = []
+
+        for move in moves:
+            self.makeMove(move)
+
+    def checkWin(self) -> str:
         self.black = self.white = 0
         for row in self.board:
             for cell in row:
@@ -98,36 +115,47 @@ class Board:
                 elif cell == "-":
                     self.black += 1
         if self.black + self.white == 64:
-            if self.white > self.black:
-                return "White Wins!"
-            elif self.black > self.white:
-                return "Black Wins!"
+            if self.white > self.black or self.black == 0:
+                return "White Wins! {} : {}".format(self.white, self.black)
+            elif self.black > self.white or self.white == 0:
+                return "Black Wins! {} : {}".format(self.black, self.white)
             else:
                 return "Tie!"
         else:
-            if(len(self.moves()) == 0):
-                self.onTurn = not self.onTurn
+            if(len(self.getValidMoves()) == 0):
+                self.endTurn()
             return "Game on"
         
-    def moves(self):
-        validMoves = []
-        for row in range(8):
-            for col in range(8):
-                if(self.isValidMove((row,col))):
-                    validMoves.append((row, col))
-        print(validMoves)
-        return validMoves
+    def getValidMoves(self) -> list:
+        self.validMoves = []
+        for col in range(self.width):
+            for row in range(self.height):
+                if(self.isValidMove((col,row))):
+                    self.validMoves.append((col, row))
+        return self.validMoves
+       
 
 board = Board()
-moves = []
-
 print(board)
-row, col = input("{} MOVE: ".format("+" if board.onTurn else "-")).strip().split(" ")
-while(row != "q"):
-    moves.append((int(row), int(col)))
-    if board.checkWin() != "Game on":
-        print(board.checkWin())
+print("Current score:", board.white, ":", board.black)
+print("Valid moves: ", board.getValidMoves())
+move = input("Move ({}): ".format("+" if board.onTurn else "-"))
+while(move[0] != "q"):
+    if(move[0] == "u"):
+        board.unmakeMove()
+        print(board)
+        print("Current score:", board.white, ":", board.black)
+        print("Valid moves: ", board.getValidMoves())
+        move = input("Move ({}): ".format("+" if board.onTurn else "-"))
+        continue
+    move = move.strip().split(" ")
+    board.makeMove(move)    
+    end = board.checkWin()
+    if(end != "Game on"):
         break
-    board.makeMove(random.choice(board.moves()))
     print(board)
-    # row, col = input("{} MOVE: ".format("+" if board.onTurn else "-")).strip().split(" ")
+    print("Current score:", board.white, ":", board.black)
+    print("Valid moves: ", board.getValidMoves())
+    move = input("Move ({}): ".format("+" if board.onTurn else "-"))
+if(move[0] != "q"):
+    print(end)
