@@ -7,7 +7,7 @@ class Board:
 
         self.black, self.white = 2,2
 
-        self.board = [[0]*self.height for row in range(self.width)]
+        self.board = [[" "]*self.height for row in range(self.width)]
 
         self.board[3][3] = self.board[4][4] = "-"
         self.board[3][4] = self.board[4][3] = "+"
@@ -18,15 +18,14 @@ class Board:
         self.moves = []
 
     def __repr__(self) -> str:
-        ret = ""
+        ret = "──┬───┬───┬───┬───┬───┬───┬───┬───\n"
         self.validMoves = []
         for row in range(self.height - 1,-1,-1):
-            ret += str(row) + " | "
+            ret += str(row)
             for col in range(self.width):
-                ret  += str(self.board[col][row])+"  "
-            ret += "\n"
-        ret += "--------------------------\n"
-        ret += "    0  1  2  3  4  5  6  7\n"
+                ret  += " │ " + str(self.board[col][row])
+            ret += "\n──┼───┼───┼───┼───┼───┼───┼───┼───\n"
+        ret += "  │ 0 │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 \n"
         return ret
     
     def endTurn(self) -> None:
@@ -55,7 +54,7 @@ class Board:
                 vals +=  str(self.board[c][r])
                 r += dr
                 c += dc
-            if(re.search("^0{1}"+"\{}+\{}".format(opponent, player),vals) != None):
+            if(re.search("^\s{1}"+"\{}+\{}".format(opponent, player),vals) != None):
                 validDirections.append(direction)
         return validDirections
 
@@ -63,7 +62,7 @@ class Board:
         if(not(self.on_board(move))):
             return False
         c, r = move
-        if(self.board[c][r] != 0):
+        if(self.board[c][r] != " "):
             return False
         
         if(len(self.scan(move)) == 0):
@@ -93,7 +92,7 @@ class Board:
             print("Invalid Move!")
 
     def unmakeMove(self) -> None:
-        self.board = [[0]*self.height for row in range(self.width)]
+        self.board = [[" "]*self.height for row in range(self.width)]
 
         self.board[3][3] = self.board[4][4] = "-"
         self.board[3][4] = self.board[4][3] = "+"
