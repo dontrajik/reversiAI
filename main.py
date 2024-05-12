@@ -1,5 +1,5 @@
 import re
-from random import choice
+from random import choice, shuffle
 
 class Board:
     def __init__(self):
@@ -69,7 +69,7 @@ class Board:
             return False
         return True
     
-    def makeMove(self, move : list) -> None:
+    def makeMove(self, move : list) -> int:
         move = [int(i) for i in move]
         if(self.onTurn):
             opponent = "-"
@@ -90,6 +90,8 @@ class Board:
             self.moves.append(move)
         else:
             print("Invalid Move!")
+        
+        self.updateScore()
 
     def unmakeMove(self) -> None:
         self.board = [[" "]*self.height for row in range(self.width)]
@@ -104,8 +106,9 @@ class Board:
 
         for move in moves:
             self.makeMove(move)
+        self.updateScore()
 
-    def checkWin(self) -> str:
+    def updateScore(self):
         self.black = self.white = 0
         for row in self.board:
             for cell in row:
@@ -113,6 +116,10 @@ class Board:
                     self.white += 1
                 elif cell == "-":
                     self.black += 1
+        return self.white - self.black
+
+    def checkWin(self) -> str:
+        self.updateScore()
         if self.black + self.white == 64:
             if self.white > self.black or self.black == 0:
                 return "White Wins! {} : {}".format(self.white, self.black)
@@ -133,22 +140,86 @@ class Board:
                     self.validMoves.append((col, row))
         return self.validMoves
        
+class AlphaBeta:
+  def __init__(self, depth = 8):
+    self.game = Board()
+    self.depth = depth
+
+  # returns a move based on an alpha-beta search
+  def act(self):
+    move = self.search()
+    return move
+
+  # update the internal board state for the class
+  def feed(self, move):
+    self.game.makeMove(move)
+
+  # the root node of an alpha-beta search
+  def search(self):
+    print("AlphaBeta searching")
+    moves = self.game.getValidMoves()
+
+    # a list to store the values associated with each move
+    scores = []      
+    alpha = -10
+    for move in moves:
+      print(move, end="\r")
+      res = self.game.makeMove(move)
+      # if the move wins the game, play it immediately
+      if res:                     
+        self.game.unmakeMove()
+        return move
+      val = -self.alpha_beta(-10, -alpha, self.depth - 1)
+      self.game.unmakeMove()
+      scores.append((val, move))
+
+    # the algorithm randomises between moves that have the same value 
+    shuffle(scores)
+    scores.sort(key = lambda x: -x[0])
+    print("\nAlphaBeta score: " + str(scores[0][0]))
+    return scores[0][1]
+
+ 
+
+  def alpha_beta(self, alpha, beta, depth):
+    if depth == 0: return 0 
+    moves = self.game.getValidMoves()
+    for move in moves:
+      self.game.makeMove(move)
+
+      res = not(self.game.checkWin() == "Game on")
+
+      if res:
+        self.game.unmakeMove()
+        return 1 + 0.01 * depth
+      
+      val = -self.alpha_beta(-beta, -alpha, depth - 1)
+      self.game.unmakeMove()
+    
+      # check for alpha node
+      if val >= alpha:
+        alpha = val
+
+      # check for beta cut
+      if val >= beta:
+        return val
+    return self.game.updateScore() 
 
 board = Board()
 print(board)
-print("Current score:", board.white, ":", board.black)
-print("Valid moves: ", board.getValidMoves())
-move = input("Move ({}): ".format("+" if board.onTurn else "-"))
-while(move[0] != "q"):
-    if(move[0] == "u"):
-        board.unmakeMove()
-        print(board)
-        print("Current score:", board.white, ":", board.black)
-        print("Valid moves: ", board.getValidMoves())
-        move = input("Move ({}): ".format("+" if board.onTurn else "-"))
-        continue
-    move = move.strip().split(" ")
-    board.makeMove(move)    
+
+player1 = AlphaBeta(depth = 2)
+
+while(board.checkWin() == "Game on"):
+    print(board)
+    print("Current score:", board.white, ":", board.black)
+    print("Valid moves: ", board.getValidMoves())
+    bestmove = player1.act()
+    print(bestmove)
+    
+    board.makeMove(bestmove)
+    player1.feed(bestmove)
+
     end = board.checkWin()
     if(end != "Game on"):
         break
@@ -156,5 +227,7 @@ while(move[0] != "q"):
     print("Current score:", board.white, ":", board.black)
     print("Valid moves: ", board.getValidMoves())
     move = input("Move ({}): ".format("+" if board.onTurn else "-"))
-if(move[0] != "q"):
-    print(end)
+    move = move.strip().split(" ")
+    board.makeMove(move) 
+    player1.feed(move)
+print(board.white, ":", board.black)
